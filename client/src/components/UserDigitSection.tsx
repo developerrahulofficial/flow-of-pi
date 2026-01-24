@@ -59,7 +59,7 @@ export function UserDigitSection() {
     );
   }
 
-  // Has Digit
+  // Has Digit - Show chord information
   return (
     <AnimatePresence>
       {myDigit && (
@@ -73,24 +73,32 @@ export function UserDigitSection() {
             
             <div className="relative z-10 flex flex-col items-center text-center space-y-4">
               <div className="text-xs font-mono uppercase text-muted-foreground tracking-widest mb-2">
-                Your Contribution
+                Your Chord in the Artwork
               </div>
               
-              <div className="grid grid-cols-2 gap-8 w-full">
+              <div className="text-2xl font-bold font-mono text-white mb-2">
+                Chord #{myDigit.chordNumber || myDigit.digitIndex}
+              </div>
+              
+              <div className="flex items-center justify-center gap-4 w-full">
                 <div className="flex flex-col items-center">
-                  <span className="text-4xl font-bold font-mono text-white">{myDigit.digitValue}</span>
-                  <span className="text-[10px] uppercase text-muted-foreground mt-1">Value</span>
+                  <span className="text-5xl font-bold font-mono text-cyan-400">{myDigit.startDigit ?? myDigit.digitValue}</span>
+                  <span className="text-[10px] uppercase text-muted-foreground mt-1">From</span>
                 </div>
-                <div className="flex flex-col items-center border-l border-white/10">
-                  <span className="text-4xl font-bold font-mono text-white">#{myDigit.digitIndex}</span>
-                  <span className="text-[10px] uppercase text-muted-foreground mt-1">Position</span>
+                <ArrowRight className="w-6 h-6 text-white/40" />
+                <div className="flex flex-col items-center">
+                  <span className="text-5xl font-bold font-mono text-magenta-400">{myDigit.endDigit ?? "?"}</span>
+                  <span className="text-[10px] uppercase text-muted-foreground mt-1">To</span>
                 </div>
               </div>
 
               <div className="w-full h-px bg-white/10 my-4" />
               
               <p className="text-xs text-muted-foreground font-mono">
-                Assigned on {new Date(myDigit.assignedAt).toLocaleDateString()}
+                You drew a line connecting digit {myDigit.startDigit ?? myDigit.digitValue} to digit {myDigit.endDigit ?? "?"} in the global artwork.
+              </p>
+              <p className="text-[10px] text-muted-foreground/60 font-mono">
+                Added on {new Date(myDigit.assignedAt).toLocaleDateString()}
               </p>
             </div>
           </div>

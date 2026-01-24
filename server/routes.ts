@@ -36,7 +36,17 @@ export async function registerRoutes(
       return res.json(null);
     }
     
+    // Calculate the two digits for this user's chord
+    const chordNumber = userState.digitIndex;
+    const startDigitPos = 2 * (chordNumber - 1);
+    const endDigitPos = 2 * (chordNumber - 1) + 1;
+    const startDigit = piEngine.getDigit(startDigitPos);
+    const endDigit = piEngine.getDigit(endDigitPos);
+    
     res.json({
+      chordNumber: chordNumber,
+      startDigit: startDigit,
+      endDigit: endDigit,
       digitIndex: userState.digitIndex,
       digitValue: userState.digitValue,
       assignedAt: userState.assignedAt?.toISOString() || new Date().toISOString(),
@@ -52,32 +62,48 @@ export async function registerRoutes(
     // Check if already has one
     const existing = await storage.getUserPiState(userId);
     if (existing) {
+      // Calculate the two digits for this user's chord
+      const chordNumber = existing.digitIndex;
+      const startDigitPos = 2 * (chordNumber - 1);
+      const endDigitPos = 2 * (chordNumber - 1) + 1;
+      const startDigit = piEngine.getDigit(startDigitPos);
+      const endDigit = piEngine.getDigit(endDigitPos);
+      
       return res.json({
+        chordNumber: chordNumber,
+        startDigit: startDigit,
+        endDigit: endDigit,
         digitIndex: existing.digitIndex,
         digitValue: existing.digitValue,
         assignedAt: existing.assignedAt?.toISOString() || new Date().toISOString(),
       });
     }
     
-    // Assign new
-    // 1. Increment global counter
+    // Assign new chord
+    // 1. Increment global counter (currentDigitIndex = number of chords/users)
     const globalState = await storage.incrementTotalUsers();
-    const newIndex = globalState.currentDigitIndex;
+    const chordNumber = globalState.currentDigitIndex; // User's chord number
     
-    // 2. Get digit value
-    const digitValue = piEngine.getDigit(newIndex);
+    // 2. Calculate digit positions: User N uses digits at 2*(N-1) and 2*(N-1)+1
+    const startDigitPos = 2 * (chordNumber - 1);
+    const endDigitPos = 2 * (chordNumber - 1) + 1;
+    const startDigit = piEngine.getDigit(startDigitPos);
+    const endDigit = piEngine.getDigit(endDigitPos);
     
-    // 3. Create user state
+    // 3. Create user state (store chord number and start digit)
     const newState = await storage.createUserPiState({
       userId,
-      digitIndex: newIndex,
-      digitValue,
+      digitIndex: chordNumber,
+      digitValue: startDigit, // Store start digit (determines chord color)
     });
     
     // 4. Trigger render (async, don't wait)
     piEngine.renderAllResolutions().catch(console.error);
     
     res.json({
+      chordNumber: chordNumber,
+      startDigit: startDigit,
+      endDigit: endDigit,
       digitIndex: newState.digitIndex,
       digitValue: newState.digitValue,
       assignedAt: newState.assignedAt?.toISOString() || new Date().toISOString(),

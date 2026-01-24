@@ -4,22 +4,41 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
+import Home from "@/pages/Home";
+import { useAuth } from "@/hooks/use-auth";
+import { useEffect } from "react";
+import { useAssignDigit } from "@/hooks/use-pi";
 
 function Router() {
   return (
     <Switch>
-      {/* Add pages below */}
-      {/* <Route path="/" component={Home}/> */}
-      {/* Fallback to 404 */}
+      <Route path="/" component={Home} />
       <Route component={NotFound} />
     </Switch>
   );
+}
+
+// Global auth handler to auto-assign digit on login
+function AuthHandler() {
+  const { user, isAuthenticated } = useAuth();
+  const { mutate: assignDigit } = useAssignDigit();
+
+  useEffect(() => {
+    // If user just logged in, try to assign a digit
+    // The backend will prevent duplicates, so it's safe to fire and forget
+    if (isAuthenticated && user) {
+      assignDigit();
+    }
+  }, [isAuthenticated, user, assignDigit]);
+
+  return null;
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <AuthHandler />
         <Toaster />
         <Router />
       </TooltipProvider>

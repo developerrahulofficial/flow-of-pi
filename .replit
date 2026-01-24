@@ -4,6 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
+packages = ["util-linux", "libuuid", "pkg-config", "cairo", "pango", "libpng", "libjpeg", "giflib", "librsvg", "pixman"]
 
 [[ports]]
 localPort = 5000
@@ -37,3 +38,6 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[agent]
+integrations = ["javascript_log_in_with_replit:2.0.0"]

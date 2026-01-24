@@ -1,19 +1,33 @@
 import fs from "fs";
 import path from "path";
-import { createCanvas } from "canvas";
+import { createCanvas, CanvasRenderingContext2D } from "canvas";
 import { storage } from "./storage";
 
-// Constants for artwork
 const RESOLUTIONS = {
   "1170x2532": { width: 1170, height: 2532 },
   "1290x2796": { width: 1290, height: 2796 },
   "1125x2436": { width: 1125, height: 2436 },
   "750x1334": { width: 750, height: 1334 },
-  "latest": { width: 1170, height: 2532 }, // Default to 1170x2532
+  "latest": { width: 1170, height: 2532 },
 };
 
 const PI_FILE_PATH = path.join(process.cwd(), "server", "pi-1million.txt");
 const WALLPAPER_DIR = path.join(process.cwd(), "client", "public", "wallpapers");
+
+const COLORS = [
+  "#FF3333", // 0 - Red
+  "#FF8C33", // 1 - Orange  
+  "#FFDD33", // 2 - Yellow
+  "#AAFF33", // 3 - Yellow-Green
+  "#33FF57", // 4 - Green
+  "#33FFAA", // 5 - Cyan-Green
+  "#33DDFF", // 6 - Cyan
+  "#3388FF", // 7 - Blue
+  "#8833FF", // 8 - Purple
+  "#FF33DD", // 9 - Magenta
+];
+
+const INITIAL_DIGITS = 100; // Show first 100 digits of Pi on startup for visual appeal
 
 export class PiEngine {
   private digits: string = "";
@@ -24,9 +38,10 @@ export class PiEngine {
 
   private loadDigits() {
     if (fs.existsSync(PI_FILE_PATH)) {
-      this.digits = fs.readFileSync(PI_FILE_PATH, "utf-8").replace(/\D/g, ""); // Keep only digits
+      this.digits = fs.readFileSync(PI_FILE_PATH, "utf-8").replace(/\D/g, "");
+      console.log(`Loaded ${this.digits.length} digits of Pi`);
     } else {
-      console.warn("Pi digits file not found. Artwork will be empty until downloaded.");
+      console.warn("Pi digits file not found.");
     }
   }
 
@@ -41,119 +56,149 @@ export class PiEngine {
     }
 
     const globalState = await storage.getGlobalState();
-    const count = globalState.currentDigitIndex;
+    const userCount = globalState.currentDigitIndex;
     
-    // We render one "master" art state, but adapted for each resolution
-    // Actually, to be efficient, we can render once large and crop/resize, 
-    // BUT the prompt says "Center artwork safely".
-    // Let's render for each resolution to be safe and crisp.
+    // Always show at least INITIAL_DIGITS for visual appeal, plus user contributions
+    const digitCount = Math.max(INITIAL_DIGITS, userCount);
 
     for (const [name, res] of Object.entries(RESOLUTIONS)) {
-      await this.renderWallpaper(res.width, res.height, count, name);
+      await this.renderWallpaper(res.width, res.height, digitCount, name);
     }
     
-    // Update timestamp
     await storage.updateGlobalState({});
+    console.log(`Rendered wallpapers with ${digitCount} digits`);
+  }
+
+  private seededRandom(seed: number): number {
+    const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+    return x - Math.floor(x);
   }
 
   private async renderWallpaper(width: number, height: number, digitCount: number, filename: string) {
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
 
-    // Background
+    // Black background
     ctx.fillStyle = "#000000";
     ctx.fillRect(0, 0, width, height);
 
-    // Center
     const cx = width / 2;
     const cy = height / 2;
-    // Radius: fit within the smaller dimension, with some padding
-    const maxRadius = Math.min(width, height) * 0.45; 
+    const maxRadius = Math.min(width, height) * 0.40;
+    const innerRadius = maxRadius * 0.08; // Black hole in center
+    const ringWidth = maxRadius * 0.04;
+    const outerRingRadius = maxRadius + ringWidth * 2;
 
-    // Visual Style: Circos-style
-    // We map digits to chords/arcs.
-    // 0-9 mapped to segments on the circle.
-    
-    // Palette (Neon/Spectral)
-    const colors = [
-      "#FF0000", "#FF7F00", "#FFFF00", "#7FFF00", "#00FF00", 
-      "#00FF7F", "#00FFFF", "#007FFF", "#0000FF", "#7F00FF"
-    ];
+    // Draw outer colored ring segments (0-9)
+    this.drawSegmentRing(ctx, cx, cy, outerRingRadius, ringWidth);
 
-    ctx.globalCompositeOperation = "screen"; // Additive blending for "neon" look
-    ctx.lineWidth = 1; // Fine lines
+    // Draw scattered particles around the ring
+    this.drawParticles(ctx, cx, cy, outerRingRadius, ringWidth * 3, digitCount);
 
-    // Draw chords
-    // We process digits in pairs to draw a chord from digit A to digit B? 
-    // Or just one digit adds "one new line"?
-    // "Each new digit adds ONE new stroke / chord / line"
-    // Let's say digit[i] connects to digit[i-1].
-    // Or digit[i] determines start/end based on its value and position.
+    // Draw the chords
+    this.drawChords(ctx, cx, cy, maxRadius, innerRadius, digitCount);
+
+    // Draw center black hole
+    ctx.beginPath();
+    ctx.arc(cx, cy, innerRadius, 0, Math.PI * 2);
+    ctx.fillStyle = "#000000";
+    ctx.fill();
+
+    // Draw thin ring around center
+    ctx.beginPath();
+    ctx.arc(cx, cy, innerRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(255,255,255,0.2)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    const buffer = canvas.toBuffer("image/png");
+    fs.writeFileSync(path.join(WALLPAPER_DIR, `${filename}.png`), buffer);
+  }
+
+  private drawSegmentRing(ctx: CanvasRenderingContext2D, cx: number, cy: number, radius: number, width: number) {
+    const segmentSpan = (Math.PI * 2) / 10;
+    const gap = 0.02; // Small gap between segments
+
+    for (let d = 0; d < 10; d++) {
+      const startAngle = d * segmentSpan - Math.PI / 2 + gap;
+      const endAngle = (d + 1) * segmentSpan - Math.PI / 2 - gap;
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, startAngle, endAngle);
+      ctx.strokeStyle = COLORS[d];
+      ctx.lineWidth = width;
+      ctx.lineCap = "round";
+      ctx.stroke();
+    }
+  }
+
+  private drawParticles(ctx: CanvasRenderingContext2D, cx: number, cy: number, baseRadius: number, spread: number, count: number) {
+    const particleCount = Math.min(count * 3, 1500);
     
-    // Algorithm:
-    // Divide circle into 10 segments (0-9).
-    // Digit `d` at index `i`:
-    // Start point: mapped to segment `d`.
-    // End point: mapped to segment `next_digit`? Or `prev_digit`?
-    // Let's connect `i` to `i-1`.
+    for (let i = 0; i < particleCount; i++) {
+      const seed = i * 7.31;
+      const angle = this.seededRandom(seed) * Math.PI * 2;
+      const radiusOffset = (this.seededRandom(seed + 1) - 0.5) * spread * 2;
+      const r = baseRadius + radiusOffset;
+      
+      const x = cx + Math.cos(angle) * r;
+      const y = cy + Math.sin(angle) * r;
+      
+      const digit = Math.floor(this.seededRandom(seed + 2) * 10);
+      const size = this.seededRandom(seed + 3) * 3 + 1;
+      const alpha = this.seededRandom(seed + 4) * 0.6 + 0.2;
+
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fillStyle = COLORS[digit];
+      ctx.globalAlpha = alpha;
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  private drawChords(ctx: CanvasRenderingContext2D, cx: number, cy: number, maxRadius: number, innerRadius: number, digitCount: number) {
+    const segmentSpan = (Math.PI * 2) / 10;
     
-    // Optimization: If count is huge, this loop is slow.
-    // Limit to last N digits if it gets too dense? 
-    // Prompt says "Dense overlapping colorful chords". 
-    // Canvas is fast enough for 10-20k lines. 1M might be slow.
-    // For MVP, we render all up to current count.
-    
-    // To make it look "Circos", we connect points on the circumference.
-    // Each digit represents a "node" on the circle.
-    // But we need variation within the segment so all 3s don't start at exact same pixel.
-    // Map index `i` to a specific angle within the segment for digit `d`.
-    
-    // Total capacity per segment? Maybe just random angle within segment `d`? 
-    // "Deterministic" -> Use seeded random or math based on index.
+    ctx.globalCompositeOperation = "lighter";
     
     for (let i = 1; i < digitCount; i++) {
       const d1 = this.getDigit(i - 1);
       const d2 = this.getDigit(i);
       
-      const color = colors[d1];
+      // Position within segment - spread out based on index
+      const posInSegment1 = (i % 50) / 50;
+      const posInSegment2 = ((i + 17) % 50) / 50;
       
-      // Calculate angles
-      // Segment span = 360 / 10 = 36 degrees.
-      // Offset within segment based on `i` to avoid overlap
-      // Use a golden ratio or simple mod to spread them out.
-      const segmentSpan = (Math.PI * 2) / 10;
-      
-      // Deterministic jitter within segment
-      const jitter1 = (Math.sin(i) * 0.5 + 0.5) * segmentSpan;
-      const jitter2 = (Math.cos(i) * 0.5 + 0.5) * segmentSpan;
-      
-      const angle1 = d1 * segmentSpan + jitter1;
-      const angle2 = d2 * segmentSpan + jitter2;
+      const angle1 = d1 * segmentSpan + posInSegment1 * segmentSpan * 0.9 - Math.PI / 2;
+      const angle2 = d2 * segmentSpan + posInSegment2 * segmentSpan * 0.9 - Math.PI / 2;
       
       const x1 = cx + Math.cos(angle1) * maxRadius;
       const y1 = cy + Math.sin(angle1) * maxRadius;
-      
       const x2 = cx + Math.cos(angle2) * maxRadius;
       const y2 = cy + Math.sin(angle2) * maxRadius;
+
+      // Control point for bezier - closer to center for more curve
+      const midAngle = (angle1 + angle2) / 2;
+      const angleDiff = Math.abs(angle2 - angle1);
+      const curveDepth = 0.2 + (angleDiff / Math.PI) * 0.3;
+      const controlRadius = maxRadius * curveDepth;
       
-      // Quadratic Bezier Curve for "Chord" look (goes through center-ish)
-      // Control point is closer to center (0,0) relative to circle
-      // Control point radius depends on distance between angles?
-      // Simple approach: Control point is (cx, cy) -> straight lines through center.
-      // Better: Control point is midpoint * factor.
-      
+      const cpx = cx + Math.cos(midAngle) * controlRadius;
+      const cpy = cy + Math.sin(midAngle) * controlRadius;
+
       ctx.beginPath();
-      ctx.strokeStyle = color;
-      ctx.globalAlpha = 0.3; // Transparency for density
-      
       ctx.moveTo(x1, y1);
-      ctx.quadraticCurveTo(cx, cy, x2, y2);
+      ctx.quadraticCurveTo(cpx, cpy, x2, y2);
+      
+      ctx.strokeStyle = COLORS[d1];
+      ctx.lineWidth = 0.8;
+      ctx.globalAlpha = 0.4;
       ctx.stroke();
     }
     
-    // Save file
-    const buffer = canvas.toBuffer("image/png");
-    fs.writeFileSync(path.join(WALLPAPER_DIR, `${filename}.png`), buffer);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
   }
 }
 

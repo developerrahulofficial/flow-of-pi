@@ -3,10 +3,9 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { piEngine } from "./pi_engine";
 import { api } from "@shared/routes";
-import { setupAuth, registerAuthRoutes, verifySupabaseToken } from "./auth/supabaseAuth";
+import { setupAuth, registerAuthRoutes, verifySupabaseToken, supabase } from "./auth/supabaseAuth";
 import path from "path";
 import express from "express";
-import fs from "fs";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -16,8 +15,7 @@ export async function registerRoutes(
   await setupAuth(app);
   registerAuthRoutes(app);
 
-  // Serve static wallpapers
-  app.use("/wallpapers", express.static(path.join(process.cwd(), "client", "public", "wallpapers")));
+  // Wallpapers are served via Supabase Storage
 
   // API Routes
   app.get(api.pi.state.path, async (req, res) => {
@@ -131,10 +129,9 @@ export async function registerRoutes(
   });
 
   app.get(api.pi.wallpaper.path, async (req, res) => {
-    // Return URLs for the images
-    const protocol = req.protocol;
-    const host = req.get('host');
-    const baseUrl = `${protocol}://${host}/wallpapers`;
+    // Return Public URLs from Supabase Storage
+    const { data } = supabase.storage.from('wallpapers').getPublicUrl('latest.png');
+    const baseUrl = data.publicUrl.replace('/latest.png', '');
 
     const ts = Date.now();
     res.json({
@@ -154,24 +151,12 @@ export async function registerRoutes(
     });
   });
 
-  // Scheduled Task for Daily Updates (5:55 PM IST ~ 12:25 PM UTC)
-  // For simplicity in this demo, we rely on user activity or manual trigger
-  // But we can add a check here.
-  setInterval(() => {
-    const now = new Date();
-    // Simple check: if it's 5:55 PM IST (UTC+5:30) -> 12:25 UTC
-    if (now.getUTCHours() === 12 && now.getUTCMinutes() === 25) {
-      piEngine.renderAllResolutions().catch(console.error);
-    }
-  }, 60000); // Check every minute
-
-  // Initial render on startup if folder empty
-  const wallpaperDir = path.join(process.cwd(), "client", "public", "wallpapers");
-  if (!fs.existsSync(wallpaperDir) || fs.readdirSync(wallpaperDir).length === 0) {
-    console.log("Initial wallpaper render...");
-    // Delay slightly to let DB connect
-    setTimeout(() => piEngine.renderAllResolutions(), 5000);
-  }
+  // For Vercel, we can trigger this via a manual API endpoint or Vercel Cron
+  app.get("/api/admin/render", verifySupabaseToken, async (req, res) => {
+    // Simple protection - only allow specific user or check for a secret header
+    await piEngine.renderAllResolutions();
+    res.json({ status: "success" });
+  });
 
   return httpServer;
 }

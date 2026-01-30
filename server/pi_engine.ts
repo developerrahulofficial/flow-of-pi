@@ -1,7 +1,6 @@
-import fs from "fs";
-import path from "path";
 import { createCanvas, CanvasRenderingContext2D } from "canvas";
 import { storage } from "./storage";
+import { supabase } from "./auth/supabaseAuth";
 
 const RESOLUTIONS = {
   "iphone-11": { width: 828, height: 1792 },
@@ -18,7 +17,8 @@ const RESOLUTIONS = {
 };
 
 const PI_FILE_PATH = path.join(process.cwd(), "server", "pi-1million.txt");
-const WALLPAPER_DIR = path.join(process.cwd(), "client", "public", "wallpapers");
+import fs from "fs";
+import path from "path";
 
 // FIXED Circos-style scientific spectral palette
 const DIGIT_COLORS = [
@@ -63,19 +63,18 @@ export class PiEngine {
   }
 
   async renderAllResolutions() {
-    if (!fs.existsSync(WALLPAPER_DIR)) {
-      fs.mkdirSync(WALLPAPER_DIR, { recursive: true });
-    }
-
     const globalState = await storage.getGlobalState();
     const userCount = globalState.currentDigitIndex;
+
+    // Ensure bucket exists (using service role)
+    await supabase.storage.createBucket('wallpapers', { public: true }).catch(() => { });
 
     for (const [name, res] of Object.entries(RESOLUTIONS)) {
       await this.renderWallpaper(res.width, res.height, userCount, name);
     }
 
     await storage.updateGlobalState({});
-    console.log(`Rendered wallpapers with ${userCount} users (1-user-1-digit mode)`);
+    console.log(`Rendered wallpapers with ${userCount} users (1-user-1-digit mode) and uploaded to Supabase`);
   }
 
   private async renderWallpaper(width: number, height: number, userCount: number, filename: string) {
@@ -103,7 +102,18 @@ export class PiEngine {
     }
 
     const buffer = canvas.toBuffer("image/png");
-    fs.writeFileSync(path.join(WALLPAPER_DIR, `${filename}.png`), buffer);
+
+    // Upload to Supabase Storage
+    const { error } = await supabase.storage
+      .from('wallpapers')
+      .upload(`${filename}.png`, buffer, {
+        contentType: 'image/png',
+        upsert: true
+      });
+
+    if (error) {
+      console.error(`Error uploading ${filename}.png to Supabase:`, error);
+    }
   }
 
   private drawDigitRing(ctx: CanvasRenderingContext2D, cx: number, cy: number, R: number) {

@@ -24,7 +24,7 @@ export function DigitCounter({ value }: DigitCounterProps) {
         </span>
       </div>
       <span className="text-sm md:text-base text-muted-foreground font-mono mt-2 uppercase tracking-[0.2em]">
-        Digits Unlocked
+        π Digits Unlocked
       </span>
     </div>
   );

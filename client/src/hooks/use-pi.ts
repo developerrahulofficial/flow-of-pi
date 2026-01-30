@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
+import { supabase } from "@/lib/supabase";
 
 // GET /api/pi/state
 export function usePiState() {
@@ -19,7 +20,14 @@ export function useMyDigit() {
   return useQuery({
     queryKey: [api.pi.myDigit.path],
     queryFn: async () => {
-      const res = await fetch(api.pi.myDigit.path, { credentials: "include" });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return null;
+
+      const res = await fetch(api.pi.myDigit.path, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
       if (res.status === 401) return null; // Not logged in
       if (!res.ok) throw new Error("Failed to fetch my digit");
       return api.pi.myDigit.responses[200].parse(await res.json());
@@ -33,9 +41,14 @@ export function useAssignDigit() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not logged in");
+
       const res = await fetch(api.pi.assignDigit.path, {
         method: api.pi.assignDigit.method,
-        credentials: "include",
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
       });
       if (!res.ok) {
         if (res.status === 401) throw new Error("Unauthorized");
@@ -46,6 +59,7 @@ export function useAssignDigit() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.pi.myDigit.path] });
       queryClient.invalidateQueries({ queryKey: [api.pi.state.path] });
+      queryClient.invalidateQueries({ queryKey: [api.pi.wallpaper.path] });
     },
   });
 }
@@ -59,5 +73,20 @@ export function useWallpaper() {
       if (!res.ok) throw new Error("Failed to fetch wallpaper URLs");
       return api.pi.wallpaper.responses[200].parse(await res.json());
     },
+    refetchInterval: 10000, // Sync with global art
   });
 }
+
+// GET /api/pi/timeline
+export function usePiTimeline() {
+  return useQuery({
+    queryKey: [api.pi.timeline.path],
+    queryFn: async () => {
+      const res = await fetch(api.pi.timeline.path);
+      if (!res.ok) throw new Error("Failed to fetch timeline");
+      return api.pi.timeline.responses[200].parse(await res.json());
+    },
+    refetchInterval: 10000,
+  });
+}
+

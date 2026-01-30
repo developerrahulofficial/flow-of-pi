@@ -3,7 +3,7 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { piEngine } from "./pi_engine";
 import { api } from "@shared/routes";
-import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
+import { setupAuth, registerAuthRoutes, verifySupabaseToken } from "./auth/supabaseAuth";
 import path from "path";
 import express from "express";
 import fs from "fs";
@@ -25,89 +25,109 @@ export async function registerRoutes(
     res.json(state);
   });
 
-  app.get(api.pi.myDigit.path, async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    const userId = (req.user as any).claims.sub;
+  app.get(api.pi.myDigit.path, verifySupabaseToken, async (req, res) => {
+    const userId = (req.user as any).id;
     const userState = await storage.getUserPiState(userId);
-    
+
     if (!userState) {
       return res.json(null);
     }
-    
-    // Calculate the two digits for this user's chord
-    const chordNumber = userState.digitIndex;
-    const startDigitPos = 2 * (chordNumber - 1);
-    const endDigitPos = 2 * (chordNumber - 1) + 1;
-    const startDigit = piEngine.getDigit(startDigitPos);
-    const endDigit = piEngine.getDigit(endDigitPos);
-    
+
+    const digitIndex = userState.digitIndex - 1; // 0-based index for Pi sequence
+    const digitValue = piEngine.getDigit(digitIndex);
+
+    // User N reveals Digit N. They form a chord with Digit N-1 if N > 1.
+    const hasChord = userState.digitIndex > 1;
+    const fromDigit = hasChord ? piEngine.getDigit(digitIndex - 1) : null;
+
     res.json({
-      chordNumber: chordNumber,
-      startDigit: startDigit,
-      endDigit: endDigit,
       digitIndex: userState.digitIndex,
-      digitValue: userState.digitValue,
+      digitValue: digitValue,
+      fromDigit,
+      toDigit: digitValue,
+      chordNumber: hasChord ? userState.digitIndex - 1 : null,
       assignedAt: userState.assignedAt?.toISOString() || new Date().toISOString(),
     });
   });
 
-  app.post(api.pi.assignDigit.path, async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    const userId = (req.user as any).claims.sub;
-    
+  app.post(api.pi.assignDigit.path, verifySupabaseToken, async (req, res) => {
+    const userId = (req.user as any).id;
+
     // Check if already has one
     const existing = await storage.getUserPiState(userId);
     if (existing) {
-      // Calculate the two digits for this user's chord
-      const chordNumber = existing.digitIndex;
-      const startDigitPos = 2 * (chordNumber - 1);
-      const endDigitPos = 2 * (chordNumber - 1) + 1;
-      const startDigit = piEngine.getDigit(startDigitPos);
-      const endDigit = piEngine.getDigit(endDigitPos);
-      
+      const dIndex = existing.digitIndex - 1;
+      const dValue = piEngine.getDigit(dIndex);
+      const hasC = existing.digitIndex > 1;
+      const fDigit = hasC ? piEngine.getDigit(dIndex - 1) : null;
+
       return res.json({
-        chordNumber: chordNumber,
-        startDigit: startDigit,
-        endDigit: endDigit,
         digitIndex: existing.digitIndex,
-        digitValue: existing.digitValue,
+        digitValue: dValue,
+        fromDigit: fDigit,
+        toDigit: dValue,
+        chordNumber: hasC ? existing.digitIndex - 1 : null,
         assignedAt: existing.assignedAt?.toISOString() || new Date().toISOString(),
       });
     }
-    
-    // Assign new chord
-    // 1. Increment global counter (currentDigitIndex = number of chords/users)
+
+    // Assign EXACTLY ONE new digit
     const globalState = await storage.incrementTotalUsers();
-    const chordNumber = globalState.currentDigitIndex; // User's chord number
-    
-    // 2. Calculate digit positions: User N uses digits at 2*(N-1) and 2*(N-1)+1
-    const startDigitPos = 2 * (chordNumber - 1);
-    const endDigitPos = 2 * (chordNumber - 1) + 1;
-    const startDigit = piEngine.getDigit(startDigitPos);
-    const endDigit = piEngine.getDigit(endDigitPos);
-    
-    // 3. Create user state (store chord number and start digit)
+    const userDigitNumber = globalState.currentDigitIndex; // This will be 2 for the first user
+
+    const digitIndex = userDigitNumber - 1; // 0-based index of Pi
+    const digitValue = piEngine.getDigit(digitIndex);
+
     const newState = await storage.createUserPiState({
       userId,
-      digitIndex: chordNumber,
-      digitValue: startDigit, // Store start digit (determines chord color)
+      digitIndex: userDigitNumber,
+      digitValue: digitValue,
     });
-    
-    // 4. Trigger render (async, don't wait)
-    piEngine.renderAllResolutions().catch(console.error);
-    
+
+    // CRITICAL: Await render so user sees updated art immediately
+    await piEngine.renderAllResolutions().catch(console.error);
+
+    const hasC = userDigitNumber > 1;
+    const fDigit = hasC ? piEngine.getDigit(digitIndex - 1) : null;
+
     res.json({
-      chordNumber: chordNumber,
-      startDigit: startDigit,
-      endDigit: endDigit,
       digitIndex: newState.digitIndex,
       digitValue: newState.digitValue,
+      fromDigit: fDigit,
+      toDigit: digitValue,
+      chordNumber: hasC ? userDigitNumber - 1 : null,
       assignedAt: newState.assignedAt?.toISOString() || new Date().toISOString(),
     });
+  });
+
+  app.get(api.pi.timeline.path, async (req, res) => {
+    // 1. Get System Node (Index 1, Value 3)
+    const systemNode = {
+      digitIndex: 1,
+      digitValue: 3,
+      isSystem: true,
+      user: null
+    };
+
+    // 2. Get User Nodes
+    const userStates = await storage.getAllUserPiStates();
+
+    // Map to response format
+    const userNodes = userStates.map(({ state, user }) => ({
+      digitIndex: state.digitIndex,
+      digitValue: state.digitValue,
+      isSystem: false,
+      user: user ? {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        instagramHandle: user.instagramHandle,
+      } : null,
+    }));
+
+    // Combine and Sort
+    const timeline = [systemNode, ...userNodes].sort((a, b) => a.digitIndex - b.digitIndex);
+
+    res.json(timeline);
   });
 
   app.get(api.pi.wallpaper.path, async (req, res) => {
@@ -115,14 +135,21 @@ export async function registerRoutes(
     const protocol = req.protocol;
     const host = req.get('host');
     const baseUrl = `${protocol}://${host}/wallpapers`;
-    
+
+    const ts = Date.now();
     res.json({
-      latest: `${baseUrl}/latest.png`,
+      latest: `${baseUrl}/latest.png?t=${ts}`,
       resolutions: {
-        "1170x2532": `${baseUrl}/1170x2532.png`,
-        "1290x2796": `${baseUrl}/1290x2796.png`,
-        "1125x2436": `${baseUrl}/1125x2436.png`,
-        "750x1334": `${baseUrl}/750x1334.png`,
+        "iphone-11": `${baseUrl}/iphone-11.png?t=${ts}`,
+        "iphone-11-pro": `${baseUrl}/iphone-11-pro.png?t=${ts}`,
+        "iphone-12": `${baseUrl}/iphone-12.png?t=${ts}`,
+        "iphone-14-pro": `${baseUrl}/iphone-14-pro.png?t=${ts}`,
+        "iphone-14-plus": `${baseUrl}/iphone-14-plus.png?t=${ts}`,
+        "iphone-14-pro-max": `${baseUrl}/iphone-14-pro-max.png?t=${ts}`,
+        "iphone-15": `${baseUrl}/iphone-15.png?t=${ts}`,
+        "iphone-15-pro-max": `${baseUrl}/iphone-15-pro-max.png?t=${ts}`,
+        "iphone-16-pro": `${baseUrl}/iphone-16-pro.png?t=${ts}`,
+        "iphone-16-pro-max": `${baseUrl}/iphone-16-pro-max.png?t=${ts}`,
       }
     });
   });
@@ -134,16 +161,16 @@ export async function registerRoutes(
     const now = new Date();
     // Simple check: if it's 5:55 PM IST (UTC+5:30) -> 12:25 UTC
     if (now.getUTCHours() === 12 && now.getUTCMinutes() === 25) {
-       piEngine.renderAllResolutions().catch(console.error);
+      piEngine.renderAllResolutions().catch(console.error);
     }
   }, 60000); // Check every minute
 
   // Initial render on startup if folder empty
   const wallpaperDir = path.join(process.cwd(), "client", "public", "wallpapers");
   if (!fs.existsSync(wallpaperDir) || fs.readdirSync(wallpaperDir).length === 0) {
-      console.log("Initial wallpaper render...");
-      // Delay slightly to let DB connect
-      setTimeout(() => piEngine.renderAllResolutions(), 5000);
+    console.log("Initial wallpaper render...");
+    // Delay slightly to let DB connect
+    setTimeout(() => piEngine.renderAllResolutions(), 5000);
   }
 
   return httpServer;

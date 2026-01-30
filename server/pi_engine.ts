@@ -4,28 +4,34 @@ import { createCanvas, CanvasRenderingContext2D } from "canvas";
 import { storage } from "./storage";
 
 const RESOLUTIONS = {
-  "1170x2532": { width: 1170, height: 2532 },
-  "1290x2796": { width: 1290, height: 2796 },
-  "1125x2436": { width: 1125, height: 2436 },
-  "750x1334": { width: 750, height: 1334 },
-  "latest": { width: 1170, height: 2532 },
+  "iphone-11": { width: 828, height: 1792 },
+  "iphone-11-pro": { width: 1125, height: 2436 },
+  "iphone-12": { width: 1170, height: 2532 },
+  "iphone-14-pro": { width: 1179, height: 2556 },
+  "iphone-14-plus": { width: 1284, height: 2778 },
+  "iphone-14-pro-max": { width: 1290, height: 2796 },
+  "iphone-15": { width: 1179, height: 2556 },
+  "iphone-15-pro-max": { width: 1290, height: 2796 },
+  "iphone-16-pro": { width: 1206, height: 2622 },
+  "iphone-16-pro-max": { width: 1320, height: 2868 },
+  "latest": { width: 1170, height: 2532 }, // Default to iPhone 12/13
 };
 
 const PI_FILE_PATH = path.join(process.cwd(), "server", "pi-1million.txt");
 const WALLPAPER_DIR = path.join(process.cwd(), "client", "public", "wallpapers");
 
-// Fixed colors for each digit (0-9) - Circos/spectral style
+// FIXED Circos-style scientific spectral palette
 const DIGIT_COLORS = [
-  "#00FFFF", // 0 → cyan
-  "#008B8B", // 1 → teal
-  "#00FF00", // 2 → green
-  "#FFFF00", // 3 → yellow
-  "#FF8C00", // 4 → orange
-  "#FF0000", // 5 → red
-  "#FF00FF", // 6 → magenta
-  "#8B00FF", // 7 → violet
-  "#0000FF", // 8 → blue
-  "#40E0D0", // 9 → turquoise
+  "#666666", // 0 → Grey
+  "#EF4444", // 1 → Red
+  "#F97316", // 2 → Orange
+  "#FACC15", // 3 → Yellow
+  "#4ADE80", // 4 → Green
+  "#2DD4BF", // 5 → Teal
+  "#3B82F6", // 6 → Blue
+  "#6366F1", // 7 → Indigo
+  "#A855F7", // 8 → Purple
+  "#EC4899", // 9 → Pink
 ];
 
 export class PiEngine {
@@ -38,14 +44,11 @@ export class PiEngine {
   private loadDigits() {
     if (fs.existsSync(PI_FILE_PATH)) {
       const content = fs.readFileSync(PI_FILE_PATH, "utf-8");
-      // Find where Pi starts (after "3.")
       const piStart = content.indexOf("3.");
       if (piStart !== -1) {
-        // Extract from "3." onwards and remove non-digits
         const piSection = content.substring(piStart);
-        this.digits = piSection.replace(/\D/g, ""); // Now starts with 3141592653...
+        this.digits = piSection.replace(/\D/g, "");
       } else {
-        // Fallback: just remove non-digits
         this.digits = content.replace(/\D/g, "");
       }
       console.log(`Loaded ${this.digits.length} digits of Pi. First 10: ${this.digits.substring(0, 10)}`);
@@ -65,128 +68,157 @@ export class PiEngine {
     }
 
     const globalState = await storage.getGlobalState();
-    const userCount = globalState.currentDigitIndex; // Number of users = number of chords
+    const userCount = globalState.currentDigitIndex;
 
     for (const [name, res] of Object.entries(RESOLUTIONS)) {
       await this.renderWallpaper(res.width, res.height, userCount, name);
     }
-    
+
     await storage.updateGlobalState({});
-    console.log(`Rendered wallpapers with ${userCount} chords (users)`);
+    console.log(`Rendered wallpapers with ${userCount} users (1-user-1-digit mode)`);
   }
 
   private async renderWallpaper(width: number, height: number, userCount: number, filename: string) {
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
 
-    // PHASE 0: Canvas & Base Circle
-    // Step 0.1 - Black background
     ctx.fillStyle = "#000000";
     ctx.fillRect(0, 0, width, height);
 
-    // Center point
     const cx = width / 2;
     const cy = height / 2;
-    
-    // Radius = 40-45% of smaller dimension (centered for phone wallpapers)
     const R = Math.min(width, height) * 0.42;
 
-    // Step 0.2 & 0.3 - Draw the 10 colored arc segments (always visible)
-    this.drawDigitRing(ctx, cx, cy, R);
-
-    // PHASE 1-4: Draw chords based on user count
-    // Each user = 1 chord using 2 consecutive digits of Pi
-    if (userCount > 0) {
+    // 1. Chords Layer (Background)
+    if (userCount > 1) {
       this.drawChords(ctx, cx, cy, R, userCount);
     }
 
-    // Save file
+    // 2. Base Ring Layer
+    this.drawDigitRing(ctx, cx, cy, R);
+
+    // 3. Dots Layer (Top)
+    if (userCount > 1) {
+      this.drawDots(ctx, cx, cy, R, userCount);
+    }
+
     const buffer = canvas.toBuffer("image/png");
     fs.writeFileSync(path.join(WALLPAPER_DIR, `${filename}.png`), buffer);
   }
 
   private drawDigitRing(ctx: CanvasRenderingContext2D, cx: number, cy: number, R: number) {
-    // Draw outer ring with 10 colored segments (one per digit 0-9)
-    // Each segment spans 36 degrees
-    const segmentAngle = (Math.PI * 2) / 10; // 36 degrees in radians
-    const ringWidth = R * 0.06; // Width of the colored ring
-    const ringRadius = R + ringWidth; // Outer edge of ring
-    
+    const segmentAngle = (Math.PI * 2) / 10;
+    const ringWidth = R * 0.02;
+
     ctx.lineWidth = ringWidth;
     ctx.lineCap = "butt";
 
     for (let digit = 0; digit < 10; digit++) {
-      // Angle range for this digit
-      // Starting from top (rotate by -90 degrees)
       const startAngle = digit * segmentAngle - Math.PI / 2;
       const endAngle = (digit + 1) * segmentAngle - Math.PI / 2;
-      
-      // Small gap between segments
-      const gap = 0.02;
-      
+      const gap = 0.01;
+
       ctx.beginPath();
-      ctx.arc(cx, cy, ringRadius - ringWidth / 2, startAngle + gap, endAngle - gap);
+      ctx.arc(cx, cy, R, startAngle + gap, endAngle - gap);
       ctx.strokeStyle = DIGIT_COLORS[digit];
       ctx.stroke();
-    }
-
-    // Draw digit labels on the ring
-    ctx.font = `${R * 0.05}px monospace`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = "rgba(255,255,255,0.6)";
-    
-    for (let digit = 0; digit < 10; digit++) {
-      // Place label at center of segment
-      const labelAngle = digit * segmentAngle + segmentAngle / 2 - Math.PI / 2;
-      const labelRadius = ringRadius + ringWidth * 0.8;
-      const lx = cx + Math.cos(labelAngle) * labelRadius;
-      const ly = cy + Math.sin(labelAngle) * labelRadius;
-      ctx.fillText(digit.toString(), lx, ly);
     }
   }
 
   private drawChords(ctx: CanvasRenderingContext2D, cx: number, cy: number, R: number, userCount: number) {
-    // PHASE 2: Each user draws ONE chord using NEXT TWO digits of Pi
-    // User 1: digits 0,1 (3→1)
-    // User 2: digits 2,3 (4→1)
-    // User N: digits 2*(N-1), 2*(N-1)+1
-    
-    const segmentAngle = (Math.PI * 2) / 10; // 36 degrees
-    
-    ctx.lineWidth = 0.8; // Thin lines (0.5-1.2px)
-    ctx.lineCap = "round";
+    const segmentAngle = (Math.PI * 2) / 10;
+    const phi = (1 + Math.sqrt(5)) / 2;
 
-    for (let user = 1; user <= userCount; user++) {
-      // Get the two digits for this user's chord
-      const digitIndex1 = 2 * (user - 1);
-      const digitIndex2 = 2 * (user - 1) + 1;
-      
-      const startDigit = this.getDigit(digitIndex1);
-      const endDigit = this.getDigit(digitIndex2);
-      
-      // PHASE 3: Calculate angles
-      // Step 3.1: angle = center of digit's 36° segment
-      // angle = digit * 36° + 18° (in degrees) - rotate to start from top
-      const startAngle = startDigit * segmentAngle + segmentAngle / 2 - Math.PI / 2;
-      const endAngle = endDigit * segmentAngle + segmentAngle / 2 - Math.PI / 2;
-      
-      // Step 3.2: Convert angle to point on circle
-      const x1 = cx + R * Math.cos(startAngle);
-      const y1 = cy + R * Math.sin(startAngle);
-      const x2 = cx + R * Math.cos(endAngle);
-      const y2 = cy + R * Math.sin(endAngle);
-      
-      // Step 3.3 & 3.4: Draw chord with color of START digit
+    // SIGNIFICANT VISIBILITY BOOST: Thicker lines and higher opacity
+    ctx.lineWidth = 1.6;
+    ctx.globalAlpha = 0.5;
+
+    for (let i = 1; i < userCount; i++) {
+      const digitA = this.getDigit(i - 1);
+      const digitB = this.getDigit(i);
+
+      const jitterA = ((i * phi) % 1) * 0.9 + 0.05;
+      const jitterB = (((i + 1) * phi) % 1) * 0.9 + 0.05;
+
+      const angleA = (digitA * segmentAngle) + (jitterA * segmentAngle) - Math.PI / 2;
+      const angleB = (digitB * segmentAngle) + (jitterB * segmentAngle) - Math.PI / 2;
+
+      const x1 = cx + R * Math.cos(angleA);
+      const y1 = cy + R * Math.sin(angleA);
+      const x2 = cx + R * Math.cos(angleB);
+      const y2 = cy + R * Math.sin(angleB);
+
+      // REAL CURVED LOGIC: Midpoint Arc
+      // Instead of pulling to the center, we pull toward a midpoint angle
+      // on a smaller concentric circle (the "void border").
+      let midAngle = (angleA + angleB) / 2;
+
+      // Handle the 0-2PI wrap-around to ensure we curve the correct way (most aesthetic)
+      if (Math.abs(angleA - angleB) > Math.PI) {
+        midAngle += Math.PI;
+      }
+
+      const innerR = R * 0.4; // Chords will bow around this radius
+      const cpX = cx + innerR * Math.cos(midAngle);
+      const cpY = cy + innerR * Math.sin(midAngle);
+
+      const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
+      gradient.addColorStop(0, DIGIT_COLORS[digitA]);
+      gradient.addColorStop(1, DIGIT_COLORS[digitB]);
+
       ctx.beginPath();
       ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2); // Straight line
-      ctx.strokeStyle = DIGIT_COLORS[startDigit];
-      ctx.globalAlpha = 0.3; // Low opacity (0.2-0.4)
+      ctx.quadraticCurveTo(cpX, cpY, x2, y2);
+      ctx.strokeStyle = gradient;
       ctx.stroke();
     }
-    
-    ctx.globalAlpha = 1; // Reset alpha
+
+    ctx.globalAlpha = 1.0;
+  }
+
+  private drawDots(ctx: CanvasRenderingContext2D, cx: number, cy: number, R: number, userCount: number) {
+    const segmentAngle = (Math.PI * 2) / 10;
+    const phi = (1 + Math.sqrt(5)) / 2;
+
+    let i = 0;
+    while (i < userCount) {
+      const digit = this.getDigit(i);
+      let clusterSize = 1;
+
+      while (i + clusterSize < userCount && this.getDigit(i + clusterSize) === digit) {
+        clusterSize++;
+      }
+
+      if (clusterSize > 1) {
+        // Position should feel "cloud-like" in the segment but not pinned to center
+        // Deterministic jitter for both angle and radius
+        const angleJitter = ((i * phi) % 1) * 0.8 + 0.1;
+        const segmentStart = digit * segmentAngle - Math.PI / 2;
+        const angle = segmentStart + (angleJitter * segmentAngle);
+
+        // Broad radial band outside R
+        const radialPull = (((i + 2) * phi) % 1) * 30 + 10;
+        const radius = R + radialPull;
+
+        const px = cx + radius * Math.cos(angle);
+        const py = cy + radius * Math.sin(angle);
+
+        let dotRadius = 2.5;
+        if (clusterSize === 3) dotRadius = 4.5;
+        if (clusterSize === 4) dotRadius = 6.5;
+        if (clusterSize >= 5) dotRadius = 8.5;
+
+        ctx.fillStyle = DIGIT_COLORS[digit];
+        ctx.globalAlpha = 0.7;
+        ctx.beginPath();
+        ctx.arc(px, py, dotRadius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      i += clusterSize;
+    }
+
+    ctx.globalAlpha = 1.0;
   }
 }
 

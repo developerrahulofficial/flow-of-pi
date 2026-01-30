@@ -48,6 +48,7 @@ export const insertGlobalStateSchema = createInsertSchema(globalState);
 
 // Types
 export type UserPiState = typeof userPiStates.$inferSelect;
+export type InsertUserPiState = typeof userPiStates.$inferInsert;
 export type GlobalState = typeof globalState.$inferSelect;
 
 // API Contract Types
@@ -61,15 +62,22 @@ export interface PiStateResponse {
 export interface UserDigitResponse {
   digitIndex: number;
   digitValue: number;
+  fromDigit: number | null;
+  toDigit: number;
+  chordNumber: number | null;
   assignedAt: string;
 }
 
 export interface WallpaperUrls {
   latest: string; // URL to the latest generated wallpaper
   resolutions: {
-    "1170x2532": string;
-    "1290x2796": string;
-    "1125x2436": string;
-    "750x1334": string;
+    "iphone-11": string;
+    "iphone-11-pro": string;
+    "iphone-12": string;
+    "iphone-14-pro": string;
+    "iphone-14-plus": string;
+    "iphone-14-pro-max": string;
+    "iphone-16-pro": string;
+    "iphone-16-pro-max": string;
   };
 }

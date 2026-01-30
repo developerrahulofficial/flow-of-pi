@@ -5,9 +5,10 @@ import {
   type UserPiState,
   type GlobalState,
   type InsertUserPiState,
+  users,
 } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
-import { authStorage } from "./replit_integrations/auth/storage";
+import { authStorage } from "./auth/storage";
 
 export interface IStorage {
   // Global State
@@ -19,7 +20,8 @@ export interface IStorage {
   getUserPiState(userId: string): Promise<UserPiState | undefined>;
   createUserPiState(state: InsertUserPiState): Promise<UserPiState>;
   getNextAvailableDigitIndex(): Promise<number>;
-  
+  getAllUserPiStates(): Promise<{ state: UserPiState; user: typeof users.$inferSelect | null }[]>;
+
   // Auth (re-exported)
   getUser: typeof authStorage.getUser;
   upsertUser: typeof authStorage.upsertUser;
@@ -45,8 +47,8 @@ export class DatabaseStorage implements IStorage {
 
   async updateGlobalState(updates: Partial<GlobalState>): Promise<GlobalState> {
     // Ensure state exists first
-    await this.getGlobalState(); 
-    
+    await this.getGlobalState();
+
     // There is only one row in global_state, we assume ID 1 or the first one
     // But since we just got it, we can update generically
     const [updated] = await db
@@ -61,7 +63,7 @@ export class DatabaseStorage implements IStorage {
     await this.getGlobalState();
     const [updated] = await db
       .update(globalState)
-      .set({ 
+      .set({
         totalUsers: sql`${globalState.totalUsers} + 1`,
         currentDigitIndex: sql`${globalState.currentDigitIndex} + 1`
       })
@@ -83,6 +85,17 @@ export class DatabaseStorage implements IStorage {
   async getNextAvailableDigitIndex(): Promise<number> {
     const state = await this.getGlobalState();
     return state.currentDigitIndex;
+  }
+
+  async getAllUserPiStates() {
+    return db
+      .select({
+        state: userPiStates,
+        user: users,
+      })
+      .from(userPiStates)
+      .leftJoin(users, eq(userPiStates.userId, users.id))
+      .orderBy(userPiStates.digitIndex);
   }
 }
 

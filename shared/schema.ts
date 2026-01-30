@@ -1,10 +1,10 @@
 import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { users } from "./models/auth";
+import { users } from "./models/auth.js";
 import { relations } from "drizzle-orm";
 
-export * from "./models/auth";
+export * from "./models/auth.js";
 
 // Core tables for the application
 

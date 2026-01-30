@@ -158,5 +158,14 @@ export async function registerRoutes(
     res.json({ status: "success" });
   });
 
+  // Initial render on Koyeb startup
+  console.log("Initial wallpaper render check...");
+  // Delay slightly to let DB connect and bucket be created
+  setTimeout(() => {
+    piEngine.renderAllResolutions()
+      .then(() => console.log("Startup render complete."))
+      .catch(err => console.error("Startup render failed:", err));
+  }, 10000);
+
   return httpServer;
 }

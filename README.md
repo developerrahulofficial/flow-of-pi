@@ -1,6 +1,7 @@
 # 🥧 FLOW OF PI: The Infinite Masterpiece
 
-![Favicon](client/public/favicon.png)
+<img width="3801" height="1652" alt="image" src="https://github.com/user-attachments/assets/195e68d7-f0ff-4a14-aa61-e9fad3aafcff" />
+
 
 **FLOW OF PI** is a generative "Living Art" project that visualizes the infinite digits of Pi in real-time, backed by a global community of human "curators." Every user who joins the flow unlocks a permanent digit in the sequence, contributing to a massive, ever-evolving digital canvas.
 

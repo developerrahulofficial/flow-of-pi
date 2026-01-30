@@ -10,3 +10,6 @@ vite.config.ts.*
 brain
 
 .local
+
+attached_assets
+.replit

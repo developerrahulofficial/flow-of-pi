@@ -49,9 +49,11 @@ export function useAuth() {
 
   const loginMutation = useMutation({
     mutationFn: async (instagramHandle?: string) => {
-      if (instagramHandle) {
-        localStorage.setItem("pending_instagram_handle", instagramHandle);
+      if (!instagramHandle) {
+        throw new Error("Instagram handle is required to join.");
       }
+
+      localStorage.setItem("pending_instagram_handle", instagramHandle);
 
       // For simplicity in this demo, we use Supabase Google OAuth
       // You can also implement email/password login here

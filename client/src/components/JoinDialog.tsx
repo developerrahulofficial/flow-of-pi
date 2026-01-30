@@ -50,14 +50,14 @@ export function JoinDialog({ trigger }: JoinDialogProps) {
                         <div className="relative">
                             <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
                             <Input
-                                placeholder="INSTAGRAM HANDLE"
+                                placeholder="INSTAGRAM HANDLE (REQUIRED)"
                                 value={handle}
                                 onChange={(e) => setHandle(e.target.value.replace(/[^a-zA-Z0-9._]/g, ''))}
                                 className="bg-white/5 border-white/10 pl-10 h-12 text-sm tracking-widest focus-visible:ring-accent"
                             />
                         </div>
                         <p className="text-[9px] text-white/20 uppercase tracking-tighter pl-1 text-center">
-                            Used as your display name in the gallery
+                            Required for your unique digit allocation
                         </p>
                     </div>
 

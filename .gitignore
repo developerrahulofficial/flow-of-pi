@@ -8,3 +8,5 @@ vite.config.ts.*
 .gemini
 .agent
 brain
+
+.local

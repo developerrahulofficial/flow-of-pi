@@ -45,14 +45,14 @@ export function WallpaperPreview({ urls, isLoading }: WallpaperPreviewProps) {
     };
 
     return (
-        <div className="py-24 px-4 max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center gap-16 md:gap-24 relative overflow-hidden">
+        <div className="py-24 px-4 max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center gap-10 md:gap-24 relative overflow-hidden">
             {/* Background Text Overlay */}
             <div className="absolute top-20 left-0 text-[10vw] font-black text-white/[0.02] -z-10 select-none font-mono">
                 AUTOMATE
             </div>
 
             {/* Device Mockup */}
-            <div className="relative group shrink-0">
+            <div className="relative group shrink-0 transform scale-90 md:scale-100 transition-transform duration-500">
                 {/* Glow behind phone */}
                 <div className="absolute -inset-4 bg-gradient-to-tr from-cyan-500/20 via-magenta-500/20 to-yellow-500/20 rounded-[3rem] blur-2xl group-hover:opacity-100 opacity-50 transition-opacity duration-700" />
 
@@ -106,7 +106,7 @@ export function WallpaperPreview({ urls, isLoading }: WallpaperPreviewProps) {
             </div>
 
             {/* Controls Content Area */}
-            <div className="flex-1 max-w-lg">
+            <div className="flex-1 w-full max-w-lg">
                 <AnimatePresence mode="wait">
                     {!showGuide ? (
                         <motion.div
@@ -116,7 +116,7 @@ export function WallpaperPreview({ urls, isLoading }: WallpaperPreviewProps) {
                             exit={{ opacity: 0, x: -20 }}
                             className="space-y-8"
                         >
-                            <div className="space-y-4">
+                            <div className="space-y-4 text-center md:text-left">
                                 <h2 className="text-3xl md:text-5xl font-bold font-mono tracking-tighter">
                                     A <span className="text-accent italic">LIVING</span> LEGACY
                                 </h2>
@@ -127,10 +127,10 @@ export function WallpaperPreview({ urls, isLoading }: WallpaperPreviewProps) {
 
                             <div className="space-y-6">
                                 <div className="flex flex-col gap-3">
-                                    <span className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-mono">Target Device</span>
+                                    <span className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-mono text-center md:text-left">Target Device</span>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="outline" className="w-full md:w-72 justify-between border-white/10 bg-white/5 hover:bg-white/10 h-12 font-mono text-xs tracking-widest uppercase">
+                                            <Button variant="outline" className="w-full justify-between border-white/10 bg-white/5 hover:bg-white/10 h-12 font-mono text-xs tracking-widest uppercase">
                                                 <div className="flex items-center gap-2">
                                                     <Smartphone className="w-4 h-4 text-accent" />
                                                     {selectedDevice.name}
@@ -138,7 +138,7 @@ export function WallpaperPreview({ urls, isLoading }: WallpaperPreviewProps) {
                                                 <ChevronRight className="w-4 h-4 text-white/20" />
                                             </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent className="w-72 bg-neutral-900 border-white/10 text-white font-mono">
+                                        <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] bg-neutral-900 border-white/10 text-white font-mono z-50">
                                             {DEVICES.map((device) => (
                                                 <DropdownMenuItem
                                                     key={device.id}
@@ -159,7 +159,7 @@ export function WallpaperPreview({ urls, isLoading }: WallpaperPreviewProps) {
                                 <Button
                                     onClick={() => setShowGuide(true)}
                                     disabled={isLoading || !currentImageUrl}
-                                    className="group relative w-full md:w-72 h-16 bg-white text-black hover:bg-accent hover:text-white transition-all duration-500 font-bold overflow-hidden rounded-xl"
+                                    className="group relative w-full h-16 bg-white text-black hover:bg-accent hover:text-white transition-all duration-500 font-bold overflow-hidden rounded-xl"
                                 >
                                     <div className="relative z-10 flex items-center justify-center gap-3 tracking-[0.2em] uppercase text-xs">
                                         <Settings className="w-4 h-4 animate-spin-slow group-hover:scale-110 transition-transform" />
@@ -168,7 +168,7 @@ export function WallpaperPreview({ urls, isLoading }: WallpaperPreviewProps) {
                                     <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-magenta-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                                 </Button>
 
-                                <p className="text-[10px] text-white/30 font-mono flex items-center gap-2">
+                                <p className="text-[10px] text-white/30 font-mono flex items-center justify-center md:justify-start gap-2">
                                     <Info className="w-3 h-3" />
                                     Optimized for iOS 16+ Shortcuts
                                 </p>
@@ -180,7 +180,7 @@ export function WallpaperPreview({ urls, isLoading }: WallpaperPreviewProps) {
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: -20 }}
-                            className="bg-neutral-900/50 border border-white/10 rounded-2xl p-6 md:p-8 space-y-8 backdrop-blur-xl"
+                            className="bg-neutral-900/50 border border-white/10 rounded-2xl p-5 md:p-8 space-y-6 md:space-y-8 backdrop-blur-xl w-full"
                         >
                             <div className="flex justify-between items-start">
                                 <div className="space-y-1">
@@ -201,12 +201,14 @@ export function WallpaperPreview({ urls, isLoading }: WallpaperPreviewProps) {
                                 {/* Step 1: Copy URL */}
                                 <div className="space-y-3">
                                     <div className="flex items-center gap-3 text-xs font-mono font-bold">
-                                        <span className="w-6 h-6 rounded-full bg-accent/20 text-accent flex items-center justify-center text-[10px]">1</span>
+                                        <span className="w-6 h-6 rounded-full bg-accent/20 text-accent flex items-center justify-center text-[10px] shrink-0">1</span>
                                         COPY WALLPAPER URL
                                     </div>
                                     <div className="relative flex items-center gap-2">
-                                        <div className="flex-1 bg-black/40 border border-white/5 rounded-lg px-4 h-12 flex items-center text-[10px] font-mono text-white/60 overflow-hidden truncate">
-                                            {currentImageUrl}
+                                        <div className="flex-1 bg-black/40 border border-white/5 rounded-lg px-3 md:px-4 h-12 flex items-center text-[10px] font-mono text-white/60 overflow-hidden">
+                                            <div className="truncate w-full">
+                                                {currentImageUrl}
+                                            </div>
                                         </div>
                                         <Button
                                             onClick={handleCopyUrl}
@@ -225,7 +227,7 @@ export function WallpaperPreview({ urls, isLoading }: WallpaperPreviewProps) {
                                 {/* Step 2: Shortcut Steps */}
                                 <div className="space-y-4">
                                     <div className="flex items-center gap-3 text-xs font-mono font-bold">
-                                        <span className="w-6 h-6 rounded-full bg-accent/20 text-accent flex items-center justify-center text-[10px]">2</span>
+                                        <span className="w-6 h-6 rounded-full bg-accent/20 text-accent flex items-center justify-center text-[10px] shrink-0">2</span>
                                         CREATE SHORTCUT
                                     </div>
                                     <div className="grid gap-3">
@@ -235,8 +237,8 @@ export function WallpaperPreview({ urls, isLoading }: WallpaperPreviewProps) {
                                             { icon: Smartphone, text: "Add 'Set Wallpaper' (use output image)" },
                                             { icon: Check, text: "Go to Automation > New > Time of Day" }
                                         ].map((step, i) => (
-                                            <div key={i} className="flex items-center gap-4 bg-white/[0.03] p-3 rounded-lg border border-white/[0.02]">
-                                                <step.icon className="w-4 h-4 text-white/40" />
+                                            <div key={i} className="flex items-center gap-3 md:gap-4 bg-white/[0.03] p-3 rounded-lg border border-white/[0.02]">
+                                                <step.icon className="w-4 h-4 text-white/40 shrink-0" />
                                                 <span className="text-[10px] md:text-xs font-mono text-white/70 leading-relaxed">
                                                     {step.text}
                                                 </span>
@@ -247,9 +249,9 @@ export function WallpaperPreview({ urls, isLoading }: WallpaperPreviewProps) {
                             </div>
 
                             <div className="pt-4 flex items-center justify-center gap-2 text-[9px] text-white/20 font-mono text-center mb-[-10px]">
-                                <span className="w-1 h-1 rounded-full bg-white/20" />
-                                YOUR PI UPDATES AUTOMATICALLY EVERY TIME THE SHORTCUT RUNS
-                                <span className="w-1 h-1 rounded-full bg-white/20" />
+                                <span className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
+                                YOUR PI UPDATES AUTOMATICALLY
+                                <span className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
                             </div>
                         </motion.div>
                     )}

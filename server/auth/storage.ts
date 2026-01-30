@@ -1,5 +1,5 @@
-import { users, type User, type UpsertUser } from "@shared/models/auth";
-import { db } from "../db";
+import { users, type User, type UpsertUser } from "../../shared/models/auth.js";
+import { db } from "../db.js";
 import { eq } from "drizzle-orm";
 
 // Interface for auth storage operations

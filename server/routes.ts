@@ -1,9 +1,9 @@
 import type { Express } from "express";
 import type { Server } from "http";
-import { storage } from "./storage";
-import { piEngine } from "./pi_engine";
-import { api } from "@shared/routes";
-import { setupAuth, registerAuthRoutes, verifySupabaseToken, supabase } from "./auth/supabaseAuth";
+import { storage } from "./storage.js";
+import { piEngine } from "./pi_engine.js";
+import { api } from "../shared/routes.js";
+import { setupAuth, registerAuthRoutes, verifySupabaseToken, supabase } from "./auth/supabaseAuth.js";
 import path from "path";
 import express from "express";
 

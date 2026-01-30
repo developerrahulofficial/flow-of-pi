@@ -1,6 +1,6 @@
 import { createCanvas, CanvasRenderingContext2D } from "canvas";
-import { storage } from "./storage";
-import { supabase } from "./auth/supabaseAuth";
+import { storage } from "./storage.js";
+import { supabase } from "./auth/supabaseAuth.js";
 
 const RESOLUTIONS = {
   "iphone-11": { width: 828, height: 1792 },

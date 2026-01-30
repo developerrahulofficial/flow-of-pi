@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db } from "./db.js";
 import {
   globalState,
   userPiStates,
@@ -6,9 +6,9 @@ import {
   type GlobalState,
   type InsertUserPiState,
   users,
-} from "@shared/schema";
+} from "../shared/schema.js";
 import { eq, sql } from "drizzle-orm";
-import { authStorage } from "./auth/storage";
+import { authStorage } from "./auth/storage.js";
 
 export interface IStorage {
   // Global State

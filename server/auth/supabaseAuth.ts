@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { Express, RequestHandler } from 'express';
 import session from 'express-session';
 import connectPg from 'connect-pg-simple';
-import { authStorage } from './storage';
+import { authStorage } from './storage.js';
 
 // Initialize Supabase client with service role key for server-side operations
 const supabaseUrl = process.env.SUPABASE_URL!;

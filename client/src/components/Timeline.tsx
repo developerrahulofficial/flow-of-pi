@@ -1,30 +1,6 @@
-import { usePiTimeline } from "@/hooks/use-pi";
-import { useEffect, useState } from "react";
-
-// --- CSS marquee keyframe injected once ---
-const MARQUEE_STYLE = `
-@keyframes marquee-rtl {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-.marquee-track {
-  display: flex;
-  width: max-content;
-  animation: marquee-rtl var(--marquee-duration, 30s) linear infinite;
-  will-change: transform;
-}
-.marquee-track.paused {
-  animation-play-state: paused;
-}
-`;
-
-function injectStyle() {
-    if (document.getElementById("timeline-marquee-style")) return;
-    const tag = document.createElement("style");
-    tag.id = "timeline-marquee-style";
-    tag.textContent = MARQUEE_STYLE;
-    document.head.appendChild(tag);
-}
+import { usePiTimeline, useMyDigit } from "@/hooks/use-pi";
+import { useState, useRef } from "react";
+import { Target } from "lucide-react";
 
 // ─── Dashed connector line ───────────────────────────────────────────────────
 function DashedLine({ className = "" }: { className?: string }) {
@@ -86,6 +62,7 @@ function NodeList({ nodes }: { nodes: any[] }) {
                 return (
                     <div
                         key={`${node.digitIndex}-${index}`}
+                        id={`digit-${node.digitIndex}`}
                         className={`flex flex-col items-center ${spacingClass}`}
                     >
                         {/* ── TOP ZONE (fixed height) ── */}
@@ -142,11 +119,54 @@ function NodeList({ nodes }: { nodes: any[] }) {
 // ─── Main Timeline ───────────────────────────────────────────────────────────
 export function Timeline() {
     const { data: timeline, isLoading } = usePiTimeline();
-    const [isPaused, setIsPaused] = useState(false);
+    const { data: myDigit } = useMyDigit();
 
-    useEffect(() => {
-        injectStyle();
-    }, []);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const [startX, setStartX] = useState(0);
+    const [scrollLeft, setScrollLeft] = useState(0);
+
+    const onMouseDown = (e: React.MouseEvent) => {
+        if (!scrollContainerRef.current) return;
+        setIsDragging(true);
+        setStartX(e.pageX - scrollContainerRef.current.offsetLeft);
+        setScrollLeft(scrollContainerRef.current.scrollLeft);
+    };
+
+    const handleMouseLeave = () => {
+        setIsDragging(false);
+    };
+
+    const handleMouseUp = () => {
+        setIsDragging(false);
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (!isDragging || !scrollContainerRef.current) return;
+        e.preventDefault();
+        const x = e.pageX - scrollContainerRef.current.offsetLeft;
+        const walk = (x - startX) * 2; // Scroll-fast
+        scrollContainerRef.current.scrollLeft = scrollLeft - walk;
+    };
+
+    const jumpToMyDigit = () => {
+        if (!myDigit) return;
+        const el = document.getElementById(`digit-${myDigit.digitIndex}`);
+        if (el && scrollContainerRef.current) {
+            const containerLeft = scrollContainerRef.current.getBoundingClientRect().left;
+            const containerWidth = scrollContainerRef.current.clientWidth;
+            const elLeft = el.getBoundingClientRect().left;
+            const elWidth = el.clientWidth;
+
+            const currentScroll = scrollContainerRef.current.scrollLeft;
+            const targetScroll = currentScroll + (elLeft - containerLeft) - (containerWidth / 2) + (elWidth / 2);
+
+            scrollContainerRef.current.scrollTo({
+                left: targetScroll,
+                behavior: 'smooth'
+            });
+        }
+    };
 
     if (isLoading) {
         return (
@@ -162,34 +182,39 @@ export function Timeline() {
         return null;
     }
 
-    const duration = Math.max(20, timeline.length * 3);
-
     return (
-        // overflow-x-hidden ONLY — but since we no longer use absolute positioning,
-        // vertical content won't be clipped at all.
-        <div className="relative w-full" style={{ overflowX: "hidden" }}>
-            {/* Fade masks */}
-            <div className="absolute left-0 top-0 bottom-0 w-8 md:w-32 bg-gradient-to-r from-background to-transparent z-20 pointer-events-none" />
-            <div className="absolute right-0 top-0 bottom-0 w-8 md:w-32 bg-gradient-to-l from-background to-transparent z-20 pointer-events-none" />
+        <div className="relative w-full flex flex-col items-center">
+            {myDigit && (
+                <button
+                    onClick={jumpToMyDigit}
+                    className="mb-8 z-30 px-6 py-2.5 bg-background shadow-[0_0_20px_rgba(74,222,128,0.25)] hover:shadow-[0_0_30px_rgba(74,222,128,0.4)] text-accent rounded-full text-sm font-bold transition-all duration-300 flex items-center gap-2.5 border border-accent/40 hover:border-accent hover:bg-accent/10 hover:-translate-y-0.5"
+                >
+                    <Target className="w-4 h-4" />
+                    Locate My Digit
+                </button>
+            )}
 
-            {/* Marquee track */}
-            <div
-                className={`marquee-track${isPaused ? " paused" : ""}`}
-                style={{ "--marquee-duration": `${duration}s` } as React.CSSProperties}
-                onMouseEnter={() => setIsPaused(true)}
-                onMouseLeave={() => setIsPaused(false)}
-                onTouchStart={() => setIsPaused(true)}
-                onTouchEnd={() => setTimeout(() => setIsPaused(false), 2000)}
-            >
-                {/* Copy 1 — trailing spacer signals end of sequence */}
-                <div className="flex-shrink-0 flex items-center px-4">
-                    <NodeList nodes={timeline} />
-                    <div className="w-32 md:w-56 flex-shrink-0" aria-hidden="true" />
-                </div>
-                {/* Copy 2 — seamless loop */}
-                <div className="flex-shrink-0 flex items-center px-4" aria-hidden="true">
-                    <NodeList nodes={timeline} />
-                    <div className="w-32 md:w-56 flex-shrink-0" aria-hidden="true" />
+            <div className="relative w-full text-white">
+                {/* Fade masks */}
+                <div className="absolute left-0 top-0 bottom-0 w-12 md:w-40 bg-gradient-to-r from-background to-transparent z-20 pointer-events-none" />
+                <div className="absolute right-0 top-0 bottom-0 w-12 md:w-40 bg-gradient-to-l from-background to-transparent z-20 pointer-events-none" />
+
+                {/* Scroll track */}
+                <div
+                    ref={scrollContainerRef}
+                    className={`overflow-x-auto no-scrollbar flex w-full cursor-grab active:cursor-grabbing select-none pb-4`}
+                    onMouseDown={onMouseDown}
+                    onMouseLeave={handleMouseLeave}
+                    onMouseUp={handleMouseUp}
+                    onMouseMove={handleMouseMove}
+                    style={{ scrollBehavior: isDragging ? 'auto' : 'smooth' }}
+                >
+                    <div className="flex-shrink-0 flex items-center px-4">
+                        {/* Start padding to ensure first and last items can be centered */}
+                        <div className="w-[45vw] flex-shrink-0" aria-hidden="true" />
+                        <NodeList nodes={timeline} />
+                        <div className="w-[45vw] flex-shrink-0" aria-hidden="true" />
+                    </div>
                 </div>
             </div>
         </div>

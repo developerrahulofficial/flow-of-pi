@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { LogOut, Loader2 } from "lucide-react";
 import { JoinDialog } from "./JoinDialog";
+import { GithubLink } from "./GithubLink";
 
 export function Navigation() {
   const { user, isLoading, logout } = useAuth();
@@ -46,6 +47,7 @@ export function Navigation() {
           >
             Wallpaper
           </a>
+          <GithubLink className="hidden md:flex" />
 
           {isLoading ? (
             <Loader2 className="w-4 h-4 animate-spin text-white/20" />
